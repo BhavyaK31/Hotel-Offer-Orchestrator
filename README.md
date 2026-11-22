@@ -9,6 +9,13 @@ A TypeScript/Express service that concurrently fetches mock hotel inventory from
 - **Redis**: stores hotel names in a per-city sorted set scored by price, with offer JSON in a hash. `ZRANGEBYSCORE` performs min/max filtering.
 - **Worker**: separate process polling the Temporal task queue.
 
+- Matching is case-insensitive and trims surrounding whitespace; the winning record retains the supplier's original display name.
+- Equal prices keep the first record encountered (Supplier A).
+- The workflow owns the comparison logic; the API reads the completed workflow's result from Redis.
+- The API starts a fresh workflow for each request so supplier data is refreshed on each call.
+- Redis keys: `hotels:<city>:by-price` (sorted set) and `hotels:<city>:data` (hash).
+- Supplier mock datasets contain shared hotel names plus supplier-exclusive hotels across Delhi.
+
 ## Run with Docker Compose
 
 Requirements: Docker Engine and Docker Compose v2.
@@ -69,29 +76,3 @@ Import `postman/Hotel-Offer-Orchestrator.postman_collection.json` into Postman. 
 - A city with no results
 - Each mock supplier endpoint
 - Health check
-
-## Local development (optional)
-
-Requires Node.js 22+, Redis, and a Temporal dev server reachable at `localhost:7233`.
-
-```bash
-cp .env.example .env
-npm install
-npm run build
-npm run start:api
-```
-
-In another terminal:
-
-```bash
-npm run start:worker
-```
-
-## Design notes
-
-- Matching is case-insensitive and trims surrounding whitespace; the winning record retains the supplier's original display name.
-- Equal prices keep the first record encountered (Supplier A).
-- The workflow owns the comparison logic; the API reads the completed workflow's result from Redis.
-- The API starts a fresh workflow for each request so supplier data is refreshed on each call.
-- Redis keys: `hotels:<city>:by-price` (sorted set) and `hotels:<city>:data` (hash).
-- Supplier mock datasets contain shared hotel names plus supplier-exclusive hotels across Delhi.
