@@ -1,0 +1,61 @@
+services:
+  api:
+    build: .
+    command: ["node", "dist/server.js"]
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: hotel-offer-task-queue
+      REDIS_URL: redis://redis:6379
+      SUPPLIER_BASE_URL: http://api:3000
+    depends_on:
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["node", "dist/worker.js"]
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_NAMESPACE: default
+      TEMPORAL_TASK_QUEUE: hotel-offer-task-queue
+      REDIS_URL: redis://redis:6379
+      SUPPLIER_BASE_URL: http://api:3000
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  temporal:
+    image: temporalio/temporal:latest
+    # The official dev server provides Temporal + its UI for local development.
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/tmp/temporal.db"]
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    restart: unless-stopped
+
+volumes:
+  redis_data:
